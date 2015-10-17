@@ -1,0 +1,7 @@
+LIBRARY TgSmushOrig
+EXPORTS
+SmushOrigGetFrameCount  @1
+SmushOrigPlay           @2
+SmushOrigSetVolume      @3
+SmushOrigShutdown       @4
+SmushOrigStartup        @5
