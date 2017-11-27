@@ -3,8 +3,6 @@
 #include "AudPlay.h"
 #include "AviCode.h"
 
-using namespace std;
-
 struct SMUSHHEADER
 {
 	DWORD d01;
@@ -54,7 +52,7 @@ namespace
 
 }
 
-int XcrPlayVideo(wstring filename, void* playCallback)
+int XcrPlayVideo(std::wstring filename, void* playCallback)
 {
 	SMUSHHEADER* pHeader = NULL;
 	DWORD retVal = 0;
