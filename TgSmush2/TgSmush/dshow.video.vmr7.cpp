@@ -1,3 +1,6 @@
+// Copyright (c) Isildur 2003, Jérémy Ansel 2014
+// Licensed under the MIT license. See LICENSE.txt
+
 #include "common.h"
 #include "dshow.video.h"
 #include "dshow.video.vmr7.h"

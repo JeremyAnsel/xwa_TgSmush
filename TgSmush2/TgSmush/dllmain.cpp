@@ -1,3 +1,6 @@
+// Copyright (c) Isildur 2003, Jérémy Ansel 2014
+// Licensed under the MIT license. See LICENSE.txt
+
 #include "targetver.h"
 
 #define WIN32_LEAN_AND_MEAN
