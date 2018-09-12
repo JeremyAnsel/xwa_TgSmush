@@ -27,6 +27,17 @@ The playable formats are .snm, .avi and .wmv.
 - other avi files and wmv files are played using DirectShow.
 
 
+*** License ***
+
+XWA TgSmush is licensed under the MIT license. See LICENSE.txt
+
+
+*** Source code ***
+
+The source code of XWA TgSmush is situated at:
+https://github.com/JeremyAnsel/xwa_TgSmush
+
+
 *** Credits ***
 
 - Defiant: his unfinished smush library has inspired Isildur
