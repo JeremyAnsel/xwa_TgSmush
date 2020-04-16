@@ -1,0 +1,13 @@
+
+:0055BC29
+8BB42410010000          mov esi, dword ptr [esp+00000110]
+
+33DB                    xor ebx, ebx
+891D404B9F00            mov dword ptr [009F4B40], ebx
+E8yyyyyyyy              call xxxxxxxx - (0x0055BC29 + 0x0D) = yyyyyyyy
+EB67                    jmp 0055BC9F, 0055BC9F - (0x0055BC29 + 0x0F) = 67
+
+:0055BCB0
+E82BF00300              call 0059ACE0
+
+9090909090              nop
