@@ -10,9 +10,7 @@
 #pragma comment(lib, "Strmiids")
 #pragma comment(lib, "Quartz")
 
-using namespace std;
-
-SIZE GetVideoSize(wstring filename)
+SIZE GetVideoSize(std::wstring filename)
 {
 	SIZE sz{};
 	HRESULT hr;

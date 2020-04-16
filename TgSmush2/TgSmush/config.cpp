@@ -8,19 +8,17 @@
 #include <algorithm>
 #include <cctype>
 
-using namespace std;
-
 Config g_config;
 
 Config::Config()
 {
 	this->AspectRatioPreserved = false;
 
-	ifstream file("TgSmush.cfg");
+	std::ifstream file("TgSmush.cfg");
 
 	if (file.is_open())
 	{
-		string line;
+		std::string line;
 
 		while (std::getline(file, line))
 		{
@@ -36,11 +34,11 @@ Config::Config()
 
 			int pos = line.find("=");
 
-			string name = line.substr(0, pos);
-			name.erase(remove_if(name.begin(), name.end(), std::isspace), name.end());
+			std::string name = line.substr(0, pos);
+			name.erase(std::remove_if(name.begin(), name.end(), std::isspace), name.end());
 
-			string value = line.substr(pos + 1);
-			value.erase(remove_if(value.begin(), value.end(), std::isspace), value.end());
+			std::string value = line.substr(pos + 1);
+			value.erase(std::remove_if(value.begin(), value.end(), std::isspace), value.end());
 
 			if (!name.length() || !value.length())
 			{
@@ -49,7 +47,7 @@ Config::Config()
 
 			if (name == "PreserveAspectRatio")
 			{
-				this->AspectRatioPreserved = stoi(value) != 0;
+				this->AspectRatioPreserved = std::stoi(value) != 0;
 			}
 		}
 	}

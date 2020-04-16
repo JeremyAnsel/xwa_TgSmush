@@ -8,17 +8,17 @@
 
 #include "xcr.player.h"
 #include "dshow.player.h"
+#include "mfplayer.h"
 
 #include "../TgSmushOrig/TgSmushOrig.h"
 #pragma comment(lib, "../TgSmushOrig/TgSmushOrig")
-
-using namespace std;
 
 enum PlayerType
 {
 	PlayerType_SmushOrig,
 	PlayerType_Xcr,
 	PlayerType_DShow,
+	PlayerType_MF,
 	PlayerType_Unknown = -1
 };
 
@@ -86,16 +86,17 @@ int SmushPlay(
 {
 	g_PlayerType = PlayerType_Unknown;
 
-	string baseFileName = string(filename).substr(0, string(filename).rfind('.'));
+	std::string baseFileName = std::string(filename).substr(0, std::string(filename).rfind('.'));
 
-	wstringstream path;
+	std::wstringstream path;
+	std::string pathString;
 
 	if (g_PlayerType == PlayerType_Unknown)
 	{
 		path.str(L"");
 		path << baseFileName.c_str() << ".avi";
 
-		if (ifstream(path.str()))
+		if (std::ifstream(path.str()))
 		{
 			SIZE size = GetVideoSize(path.str());
 
@@ -115,7 +116,7 @@ int SmushPlay(
 		path.str(L"");
 		path << baseFileName.c_str() << ".wmv";
 
-		if (ifstream(path.str()))
+		if (std::ifstream(path.str()))
 		{
 			g_PlayerType = PlayerType_DShow;
 		}
@@ -123,7 +124,30 @@ int SmushPlay(
 
 	if (g_PlayerType == PlayerType_Unknown)
 	{
-		if (ifstream(filename))
+		path.str(L"");
+		path << baseFileName.c_str() << ".mp4";
+
+		if (std::ifstream(path.str()))
+		{
+			g_PlayerType = PlayerType_MF;
+		}
+	}
+
+	if (g_PlayerType == PlayerType_Unknown)
+	{
+		pathString = baseFileName + ".znm";
+
+		if (std::ifstream(pathString))
+		{
+			g_PlayerType = PlayerType_SmushOrig;
+		}
+	}
+
+	if (g_PlayerType == PlayerType_Unknown)
+	{
+		pathString = filename;
+
+		if (std::ifstream(pathString))
 		{
 			g_PlayerType = PlayerType_SmushOrig;
 		}
@@ -133,7 +157,7 @@ int SmushPlay(
 	{
 	case PlayerType_SmushOrig:
 		return SmushOrigPlayVideo(
-			filename,
+			pathString.c_str(),
 			arg2,
 			arg3,
 			arg4,
@@ -152,6 +176,9 @@ int SmushPlay(
 
 	case PlayerType_DShow:
 		return DShowPlayVideo(path.str());
+
+	case PlayerType_MF:
+		return MFPlayVideo(path.str());
 	}
 
 	return 0;
@@ -168,6 +195,9 @@ int SmushGetFrameCount()
 		return XcrGetFrameCount();
 
 	case PlayerType_DShow:
+		return 0;
+
+	case PlayerType_MF:
 		return 0;
 	}
 

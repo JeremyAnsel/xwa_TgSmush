@@ -8,7 +8,7 @@ See http://www.xwaupgrade.com/phpBB3008/viewtopic.php?f=9&t=11147
 *** Requirements ***
 
 This dll requires:
-- Windows XP SP2 or superior
+- Windows 7 or superior
 
 
 *** Usage ***
@@ -20,11 +20,12 @@ To use this dll:
 
 TgSmush.cfg is a config file. Open it with a text editor for more details.
 
-The playable formats are .snm, .avi and .wmv.
+The playable formats are .snm, .znm, .avi, .wmv and .mp4.
 
-- snm files are played with the original dll.
+- snm and znm files are played with the original dll.
 - avi files with a resolution <= 640x480 are played using AVIFile functions (Isildur's code).
 - other avi files and wmv files are played using DirectShow.
+- mp4 files are player using Media Foundation
 
 
 *** License ***
