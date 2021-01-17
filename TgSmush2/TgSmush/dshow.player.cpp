@@ -115,7 +115,6 @@ LRESULT DShowWindow::HandleMessages(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	{
 	case WM_DESTROY:
 		this->continuePlayback = false;
-		this->userInterrupted = true;
 		return 0;
 
 	case WM_DISPLAYCHANGE:

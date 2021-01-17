@@ -137,7 +137,6 @@ namespace
 
 		case WM_DESTROY:
 			g_continuePlayback = false;
-			g_userInterrupted = true;
 			return 0;
 
 		case WM_KEYDOWN:
