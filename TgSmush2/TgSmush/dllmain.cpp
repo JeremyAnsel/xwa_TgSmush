@@ -29,6 +29,27 @@ bool IsXwaExe()
 	return _stricmp(filename + length - 17, "xwingalliance.exe") == 0;
 }
 
+class VirtualProtectMemory
+{
+public:
+	VirtualProtectMemory()
+	{
+		address = (void*)0x401000;
+		size = 0x1A7B40;
+		VirtualProtect(address, size, PAGE_READWRITE, &oldProtection);
+	}
+
+	~VirtualProtectMemory()
+	{
+		VirtualProtect(address, size, oldProtection, nullptr);
+	}
+
+private:
+	DWORD oldProtection;
+	LPVOID address;
+	SIZE_T size;
+};
+
 int XwaPlayMovieHook(int esp)
 {
 	const int* params = &esp;
@@ -86,6 +107,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH:
 		if (IsXwaExe())
 		{
+			VirtualProtectMemory memoryProtect;
+
 			// XwaPlayMovieHook
 			*(unsigned short*)(0x0055BC29 + 0x00) = 0xDB33;
 			*(unsigned short*)(0x0055BC29 + 0x02) = 0x1D89;
