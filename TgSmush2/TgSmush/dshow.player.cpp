@@ -8,7 +8,7 @@
 class DShowWindow
 {
 public:
-	DShowWindow(std::wstring name);
+	DShowWindow(HWND owner, std::wstring name);
 	~DShowWindow();
 
 public:
@@ -33,7 +33,7 @@ private:
 	bool userInterrupted;
 };
 
-DShowWindow::DShowWindow(std::wstring name)
+DShowWindow::DShowWindow(HWND owner, std::wstring name)
 {
 	this->userInterrupted = false;
 
@@ -48,16 +48,21 @@ DShowWindow::DShowWindow(std::wstring name)
 		return;
 	}
 
+	RECT rect;
+	GetWindowRect(owner, &rect);
+
 	this->windowHandle = CreateWindowEx(
 		0,
 		(LPWSTR)this->classAtom,
 		L"DirectShow Playback",
 		WS_POPUP | WS_EX_TOPMOST,
-		0,
-		0,
-		GetSystemMetrics(SM_CXSCREEN),
-		GetSystemMetrics(SM_CYSCREEN),
-		nullptr,
+		rect.left,
+		rect.top,
+		//GetSystemMetrics(SM_CXSCREEN),
+		//GetSystemMetrics(SM_CYSCREEN),
+		rect.right - rect.left,
+		rect.bottom - rect.top,
+		owner,
 		nullptr,
 		nullptr,
 		nullptr);
@@ -85,7 +90,7 @@ DShowWindow::~DShowWindow()
 
 HRESULT DShowWindow::PlayVideo(HWND owner, std::wstring name, std::wstring filename)
 {
-	DShowWindow window{ name };
+	DShowWindow window{ owner, name };
 
 	HRESULT hr = window.Play(owner, filename);
 
@@ -253,7 +258,7 @@ HRESULT DShowWindow::Play(HWND owner, std::wstring filename)
 	InvalidateRect(this->windowHandle, NULL, FALSE);
 	this->OnSize(this->windowHandle);
 
-	ShowWindow(this->windowHandle, SW_MAXIMIZE);
+	ShowWindow(this->windowHandle, SW_NORMAL);
 
 	while (ShowCursor(FALSE) >= 0);
 
@@ -303,7 +308,7 @@ int DShowPlayVideo(std::wstring filename)
 	}
 
 	SetForegroundWindow(xwaWindow);
-	ShowWindow(xwaWindow, SW_MAXIMIZE);
+	ShowWindow(xwaWindow, SW_NORMAL);
 
 	// Init DirectDraw resources
 	((void(*)())0x540370)();

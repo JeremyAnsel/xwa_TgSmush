@@ -90,15 +90,20 @@ namespace
 			return FALSE;
 		}
 
+		RECT rect;
+		GetWindowRect(owner, &rect);
+
 		// Create the application window.
 		g_hwnd = CreateWindow(
 			(LPWSTR)g_classAtom,
 			szTitle,
 			WS_POPUP | WS_EX_TOPMOST,
-			0,
-			0,
-			GetSystemMetrics(SM_CXSCREEN),
-			GetSystemMetrics(SM_CYSCREEN),
+			rect.left,
+			rect.top,
+			//GetSystemMetrics(SM_CXSCREEN),
+			//GetSystemMetrics(SM_CYSCREEN),
+			rect.right - rect.left,
+			rect.bottom - rect.top,
 			owner,
 			nullptr,
 			nullptr,
@@ -109,7 +114,7 @@ namespace
 			return FALSE;
 		}
 
-		ShowWindow(g_hwnd, SW_MAXIMIZE);
+		ShowWindow(g_hwnd, SW_NORMAL);
 		UpdateWindow(g_hwnd);
 
 		return TRUE;
@@ -176,7 +181,7 @@ namespace
 			UpdateUI(hwnd, Closed);
 			UpdateUI(hwnd, OpenPending);
 
-			ShowWindow(hwnd, SW_MAXIMIZE);
+			ShowWindow(hwnd, SW_NORMAL);
 
 			return 0;   // Success.
 		}
@@ -310,7 +315,7 @@ int MFPlayVideo(std::wstring filename)
 	}
 
 	SetForegroundWindow(xwaWindow);
-	ShowWindow(xwaWindow, SW_MAXIMIZE);
+	ShowWindow(xwaWindow, SW_NORMAL);
 
 	// Init DirectDraw resources
 	((void(*)())0x540370)();
