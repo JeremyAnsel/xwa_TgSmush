@@ -29,26 +29,17 @@ bool IsXwaExe()
 	return _stricmp(filename + length - 17, "xwingalliance.exe") == 0;
 }
 
-class VirtualProtectMemory
+void VirtualProtectMemoryReadWrite()
 {
-public:
-	VirtualProtectMemory()
-	{
-		address = (void*)0x401000;
-		size = 0x1A7B40;
-		VirtualProtect(address, size, PAGE_READWRITE, &oldProtection);
-	}
-
-	~VirtualProtectMemory()
-	{
-		VirtualProtect(address, size, oldProtection, nullptr);
-	}
-
-private:
 	DWORD oldProtection;
-	LPVOID address;
-	SIZE_T size;
-};
+	VirtualProtect((void*)0x401000, 0x1A7B40, PAGE_READWRITE, &oldProtection);
+}
+
+void VirtualProtectMemoryExecuteReadWrite()
+{
+	DWORD oldProtection;
+	VirtualProtect((void*)0x401000, 0x1A7B40, PAGE_EXECUTE_READWRITE, &oldProtection);
+}
 
 int XwaPlayMovieHook(int esp)
 {
@@ -107,7 +98,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH:
 		if (IsXwaExe())
 		{
-			VirtualProtectMemory memoryProtect;
+			VirtualProtectMemoryReadWrite();
 
 			// XwaPlayMovieHook
 			*(unsigned short*)(0x0055BC29 + 0x00) = 0xDB33;
@@ -118,6 +109,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 			*(unsigned short*)(0x0055BC29 + 0x0D) = 0x67EB;
 			*(unsigned char*)(0x0055BCB0 + 0x00) = 0x90;
 			*(unsigned int*)(0x0055BCB0 + 0x01) = 0x90909090;
+
+			VirtualProtectMemoryExecuteReadWrite();
 		}
 
 		break;
