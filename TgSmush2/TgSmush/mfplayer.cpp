@@ -5,6 +5,7 @@
 #include "mfplayer.h"
 #include "mfplayer.player.h"
 #include <errors.h>
+#include <comdef.h>
 
 namespace
 {
@@ -17,7 +18,7 @@ namespace
 	ATOM        g_classAtom = 0;
 	HWND        g_hwnd = nullptr;
 	BOOL        g_bRepaintClient = TRUE;            // Repaint the application client area?
-	MFPlayer    *g_pPlayer = NULL;                  // Global player object. 
+	MFPlayer* g_pPlayer = NULL;                  // Global player object. 
 
 													// Note: After WM_CREATE is processed, g_pPlayer remains valid until the
 													// window is destroyed.
@@ -283,6 +284,25 @@ namespace
 			pszErrorMessage, hrErr)))
 		{
 			OutputDebugString(message);
+		}
+
+		if (FAILED(hrErr))
+		{
+			static bool messageShown = false;
+
+			if (!messageShown)
+			{
+				wchar_t text[512];
+				wcscpy_s(text, __FUNCTIONW__);
+				wcscat_s(text, L"\n");
+				wcscat_s(text, message);
+				wcscat_s(text, L"\n");
+				wcscat_s(text, _com_error(hrErr).ErrorMessage());
+
+				MessageBox(nullptr, text, __FUNCTIONW__, MB_ICONERROR);
+			}
+
+			messageShown = true;
 		}
 	}
 }

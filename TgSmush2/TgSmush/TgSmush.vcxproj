@@ -96,6 +96,7 @@
     <ClCompile Include="dshow.video.vmr9.cpp" />
     <ClCompile Include="mfplayer.cpp" />
     <ClCompile Include="mfplayer.player.cpp" />
+    <ClCompile Include="SharedMem.cpp" />
     <ClCompile Include="smush.cpp" />
     <ClCompile Include="video.cpp" />
     <ClCompile Include="xcr.player.cpp" />
@@ -115,6 +116,7 @@
     <ClInclude Include="mfplayer.h" />
     <ClInclude Include="mfplayer.player.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="SharedMem.h" />
     <ClInclude Include="smush.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="video.h" />

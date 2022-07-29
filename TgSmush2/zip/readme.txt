@@ -28,6 +28,20 @@ The playable formats are .snm, .znm, .avi, .wmv and .mp4.
 - mp4 files are player using Media Foundation
 
 
+The video data is shared via a file mapping.
+The name is L"Local\\TgSmushVideo".
+The pixel format is RGB32. 
+The format of the data pointer is:
+struct SharedMemData
+{
+    int videoFrameIndex;
+    int videoFrameWidth;
+    int videoFrameHeight;
+    int videoDataLength;
+    char* videoDataPtr;
+};
+
+
 *** License ***
 
 XWA TgSmush is licensed under the MIT license. See LICENSE.txt

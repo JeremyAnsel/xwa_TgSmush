@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE.txt
 
 #include "targetver.h"
+#include "SharedMem.h"
 #include "mfplayer.player.h"
 #include "config.h"
 //#include <assert.h>
@@ -12,8 +13,188 @@
 #pragma comment(lib, "Mfuuid")
 #pragma comment(lib, "strmiids")
 
+static int g_videoFrameIndex = -1;
+static int g_videoWidth = 0;
+static int g_videoHeight = 0;
+
+class SampleGrabberCB : public IMFSampleGrabberSinkCallback
+{
+private:
+	long m_cRef;
+
+	SampleGrabberCB() : m_cRef(1) {}
+
+public:
+	static HRESULT CreateInstance(SampleGrabberCB** ppCB);
+
+	// IUnknown methods
+	STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
+	STDMETHODIMP_(ULONG) AddRef();
+	STDMETHODIMP_(ULONG) Release();
+
+	// IMFClockStateSink methods
+	STDMETHODIMP OnClockStart(MFTIME hnsSystemTime, LONGLONG llClockStartOffset);
+	STDMETHODIMP OnClockStop(MFTIME hnsSystemTime);
+	STDMETHODIMP OnClockPause(MFTIME hnsSystemTime);
+	STDMETHODIMP OnClockRestart(MFTIME hnsSystemTime);
+	STDMETHODIMP OnClockSetRate(MFTIME hnsSystemTime, float flRate);
+
+	// IMFSampleGrabberSinkCallback methods
+	STDMETHODIMP OnSetPresentationClock(IMFPresentationClock* pClock);
+	STDMETHODIMP OnProcessSample(REFGUID guidMajorMediaType, DWORD dwSampleFlags,
+		LONGLONG llSampleTime, LONGLONG llSampleDuration, const BYTE* pSampleBuffer,
+		DWORD dwSampleSize);
+	STDMETHODIMP OnShutdown();
+};
+
+HRESULT SampleGrabberCB::CreateInstance(SampleGrabberCB** ppCB)
+{
+	*ppCB = new (std::nothrow) SampleGrabberCB();
+
+	if (ppCB == NULL)
+	{
+		return E_OUTOFMEMORY;
+	}
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::QueryInterface(REFIID riid, void** ppv)
+{
+	static const QITAB qit[] =
+	{
+		QITABENT(SampleGrabberCB, IMFSampleGrabberSinkCallback),
+		QITABENT(SampleGrabberCB, IMFClockStateSink),
+		{ 0 }
+	};
+	return QISearch(this, qit, riid, ppv);
+}
+
+STDMETHODIMP_(ULONG) SampleGrabberCB::AddRef()
+{
+	return InterlockedIncrement(&m_cRef);
+}
+
+STDMETHODIMP_(ULONG) SampleGrabberCB::Release()
+{
+	ULONG cRef = InterlockedDecrement(&m_cRef);
+
+	if (cRef == 0)
+	{
+		delete this;
+	}
+
+	return cRef;
+}
+
+STDMETHODIMP SampleGrabberCB::OnClockStart(MFTIME hnsSystemTime, LONGLONG llClockStartOffset)
+{
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnClockStop(MFTIME hnsSystemTime)
+{
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnClockPause(MFTIME hnsSystemTime)
+{
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnClockRestart(MFTIME hnsSystemTime)
+{
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnClockSetRate(MFTIME hnsSystemTime, float flRate)
+{
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnSetPresentationClock(IMFPresentationClock* pClock)
+{
+	return S_OK;
+}
+
+unsigned char clip(int v)
+{
+	if (v < 0)
+	{
+		v = 0;
+	}
+	else if (v > 255)
+	{
+		v = 255;
+	}
+
+	return (unsigned char)v;
+}
+
+STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD dwSampleFlags,
+	LONGLONG llSampleTime, LONGLONG llSampleDuration, const BYTE* pSampleBuffer,
+	DWORD dwSampleSize)
+{
+	if (guidMajorMediaType != GUID_NULL && guidMajorMediaType != MFMediaType_Video)
+	{
+		return S_OK;
+	}
+
+	g_videoFrameIndex++;
+
+	// Display information about the sample.
+	//OutputDebugString((L"Sample: start = " + std::to_wstring(llSampleTime) + L", duration = " + std::to_wstring(llSampleDuration) + L", bytes = " + std::to_wstring(dwSampleSize)).c_str());
+
+	int length = dwSampleSize / 2;
+	char* colors = new char[length * 4];
+
+	unsigned char* ptrIn = (unsigned char*)pSampleBuffer;
+	unsigned char* ptrOut = (unsigned char*)colors;
+
+	for (int i = 0; i < length / 2; i++)
+	{
+		int y0 = ptrIn[0];
+		int u0 = ptrIn[1];
+		int y1 = ptrIn[2];
+		int v0 = ptrIn[3];
+		ptrIn += 4;
+		int c = y0 - 16;
+		int d = u0 - 128;
+		int e = v0 - 128;
+		ptrOut[0] = clip((298 * c + 516 * d + 128) >> 8); // blue
+		ptrOut[1] = clip((298 * c - 100 * d - 208 * e + 128) >> 8); // green
+		ptrOut[2] = clip((298 * c + 409 * e + 128) >> 8); // red
+		ptrOut[3] = 255;
+		c = y1 - 16;
+		ptrOut[4] = clip((298 * c + 516 * d + 128) >> 8); // blue
+		ptrOut[5] = clip((298 * c - 100 * d - 208 * e + 128) >> 8); // green
+		ptrOut[6] = clip((298 * c + 409 * e + 128) >> 8); // red
+		ptrOut[7] = 255;
+		ptrOut += 8;
+	}
+
+	auto sharedMem = GetTgSmushVideoSharedMem();
+
+	if (sharedMem)
+	{
+		sharedMem->videoFrameIndex = g_videoFrameIndex;
+		sharedMem->videoFrameWidth = g_videoWidth;
+		sharedMem->videoFrameHeight = g_videoHeight;
+		sharedMem->videoDataLength = length * 4;
+		sharedMem->videoDataPtr = colors;
+	}
+
+	delete[] colors;
+
+	return S_OK;
+}
+
+STDMETHODIMP SampleGrabberCB::OnShutdown()
+{
+	return S_OK;
+}
+
 template <class Q>
-HRESULT GetEventObject(IMFMediaEvent *pEvent, Q **ppObject)
+HRESULT GetEventObject(IMFMediaEvent* pEvent, Q** ppObject)
 {
 	*ppObject = NULL;   // zero output
 
@@ -34,24 +215,24 @@ HRESULT GetEventObject(IMFMediaEvent *pEvent, Q **ppObject)
 	return hr;
 }
 
-HRESULT CreateMediaSource(PCWSTR pszURL, IMFMediaSource **ppSource);
+HRESULT CreateMediaSource(PCWSTR pszURL, IMFMediaSource** ppSource);
 
-HRESULT CreatePlaybackTopology(IMFMediaSource *pSource,
-	IMFPresentationDescriptor *pPD, HWND hVideoWnd, IMFTopology **ppTopology);
+HRESULT CreatePlaybackTopology(IMFMediaSource* pSource,
+	IMFPresentationDescriptor* pPD, HWND hVideoWnd, IMFTopology** ppTopology);
 
 //  Static class method to create the MFPlayer object.
 
 HRESULT MFPlayer::CreateInstance(
 	HWND hVideo,                  // Video window.
 	HWND hEvent,                  // Window to receive notifications.
-	MFPlayer **ppPlayer)           // Receives a pointer to the MFPlayer object.
+	MFPlayer** ppPlayer)           // Receives a pointer to the MFPlayer object.
 {
 	if (ppPlayer == NULL)
 	{
 		return E_POINTER;
 	}
 
-	MFPlayer *pPlayer = new (std::nothrow) MFPlayer(hVideo, hEvent);
+	MFPlayer* pPlayer = new (std::nothrow) MFPlayer(hVideo, hEvent);
 	if (pPlayer == NULL)
 	{
 		return E_OUTOFMEMORY;
@@ -146,7 +327,7 @@ ULONG MFPlayer::Release()
 }
 
 //  Open a URL for playback.
-HRESULT MFPlayer::OpenURL(const WCHAR *sURL)
+HRESULT MFPlayer::OpenURL(const WCHAR* sURL)
 {
 	// 1. Create a new media session.
 	// 2. Create the media source.
@@ -154,7 +335,7 @@ HRESULT MFPlayer::OpenURL(const WCHAR *sURL)
 	// 4. Queue the topology [asynchronous]
 	// 5. Start playback [asynchronous - does not happen in this method.]
 
-	IMFTopology *pTopology = NULL;
+	IMFTopology* pTopology = NULL;
 	IMFPresentationDescriptor* pSourcePD = NULL;
 
 	// Create the media session.
@@ -205,6 +386,7 @@ done:
 
 	SafeRelease(&pSourcePD);
 	SafeRelease(&pTopology);
+
 	return hr;
 }
 
@@ -286,11 +468,11 @@ HRESULT MFPlayer::ResizeVideo(WORD width, WORD height)
 
 //  Callback for the asynchronous BeginGetEvent method.
 
-HRESULT MFPlayer::Invoke(IMFAsyncResult *pResult)
+HRESULT MFPlayer::Invoke(IMFAsyncResult* pResult)
 {
 	MediaEventType meType = MEUnknown;  // Event type
 
-	IMFMediaEvent *pEvent = NULL;
+	IMFMediaEvent* pEvent = NULL;
 
 	// Get the event from the event queue.
 	HRESULT hr = m_pSession->EndGetEvent(pResult, &pEvent);
@@ -349,7 +531,7 @@ HRESULT MFPlayer::HandleEvent(UINT_PTR pEventPtr)
 	HRESULT hrStatus = S_OK;
 	MediaEventType meType = MEUnknown;
 
-	IMFMediaEvent *pEvent = (IMFMediaEvent*)pEventPtr;
+	IMFMediaEvent* pEvent = (IMFMediaEvent*)pEventPtr;
 
 	if (pEvent == NULL)
 	{
@@ -372,6 +554,7 @@ HRESULT MFPlayer::HandleEvent(UINT_PTR pEventPtr)
 	{
 		hr = hrStatus;
 	}
+
 	if (FAILED(hr))
 	{
 		goto done;
@@ -398,6 +581,7 @@ HRESULT MFPlayer::HandleEvent(UINT_PTR pEventPtr)
 
 done:
 	SafeRelease(&pEvent);
+
 	return hr;
 }
 
@@ -421,7 +605,7 @@ HRESULT MFPlayer::Shutdown()
 
 /// Protected methods
 
-HRESULT MFPlayer::OnTopologyStatus(IMFMediaEvent *pEvent)
+HRESULT MFPlayer::OnTopologyStatus(IMFMediaEvent* pEvent)
 {
 	UINT32 status;
 
@@ -443,12 +627,13 @@ HRESULT MFPlayer::OnTopologyStatus(IMFMediaEvent *pEvent)
 
 		hr = StartPlayback();
 	}
+
 	return hr;
 }
 
 
 //  Handler for MEEndOfPresentation event.
-HRESULT MFPlayer::OnPresentationEnded(IMFMediaEvent *pEvent)
+HRESULT MFPlayer::OnPresentationEnded(IMFMediaEvent* pEvent)
 {
 	// The session puts itself into the stopped state automatically.
 	m_state = Stopped;
@@ -460,10 +645,10 @@ HRESULT MFPlayer::OnPresentationEnded(IMFMediaEvent *pEvent)
 //  This event is sent if the media source has a new presentation, which 
 //  requires a new topology. 
 
-HRESULT MFPlayer::OnNewPresentation(IMFMediaEvent *pEvent)
+HRESULT MFPlayer::OnNewPresentation(IMFMediaEvent* pEvent)
 {
-	IMFPresentationDescriptor *pPD = NULL;
-	IMFTopology *pTopology = NULL;
+	IMFPresentationDescriptor* pPD = NULL;
+	IMFTopology* pTopology = NULL;
 
 	// Get the presentation descriptor from the event.
 	HRESULT hr = GetEventObject(pEvent, &pPD);
@@ -491,6 +676,7 @@ HRESULT MFPlayer::OnNewPresentation(IMFMediaEvent *pEvent)
 done:
 	SafeRelease(&pTopology);
 	SafeRelease(&pPD);
+
 	return S_OK;
 }
 
@@ -617,7 +803,7 @@ HRESULT MFPlayer::Play()
 
 
 //  Create a media source from a URL.
-HRESULT CreateMediaSource(PCWSTR sURL, IMFMediaSource **ppSource)
+HRESULT CreateMediaSource(PCWSTR sURL, IMFMediaSource** ppSource)
 {
 	MF_OBJECT_TYPE ObjectType = MF_OBJECT_INVALID;
 
@@ -644,7 +830,7 @@ HRESULT CreateMediaSource(PCWSTR sURL, IMFMediaSource **ppSource)
 		NULL,                       // Optional property store.
 		&ObjectType,        // Receives the created object type. 
 		&pSource            // Receives a pointer to the media source.
-		);
+	);
 	if (FAILED(hr))
 	{
 		goto done;
@@ -659,73 +845,290 @@ done:
 	return hr;
 }
 
-//  Create an activation object for a renderer, based on the stream media type.
-
-HRESULT CreateMediaSinkActivate(
-	IMFStreamDescriptor *pSourceSD,     // Pointer to the stream descriptor.
-	HWND hVideoWindow,                  // Handle to the video clipping window.
-	IMFActivate **ppActivate
-	)
+HRESULT GetDescriptorMajorType(IMFStreamDescriptor* descriptor, GUID* pMajorType)
 {
-	IMFMediaTypeHandler *pHandler = NULL;
-	IMFActivate *pActivate = NULL;
+	HRESULT hr = S_OK;
+	IMFMediaTypeHandler* mediaTypeHandler = nullptr;
+	GUID majorType{};
 
-	// Get the media type handler for the stream.
-	HRESULT hr = pSourceSD->GetMediaTypeHandler(&pHandler);
-	if (FAILED(hr))
+	if (SUCCEEDED(hr))
 	{
-		goto done;
+		hr = descriptor->GetMediaTypeHandler(&mediaTypeHandler);
 	}
 
-	// Get the major media type.
-	GUID guidMajorType;
-	hr = pHandler->GetMajorType(&guidMajorType);
-	if (FAILED(hr))
+	if (SUCCEEDED(hr))
 	{
-		goto done;
+		hr = mediaTypeHandler->GetMajorType(&majorType);
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		*pMajorType = majorType;
+	}
+
+	return hr;
+}
+
+HRESULT GetAudioStreamDescriptor(IMFPresentationDescriptor* sourcePD, int sourceStreamCount, IMFStreamDescriptor** pDescriptor)
+{
+	HRESULT hr = S_OK;
+	int streamIndex = -1;
+
+	for (int i = 0; i < sourceStreamCount; i++)
+	{
+		IMFStreamDescriptor* descriptor = nullptr;
+		GUID majorType{};
+
+		if (SUCCEEDED(hr))
+		{
+			BOOL isSelected = FALSE;
+			hr = sourcePD->GetStreamDescriptorByIndex(i, &isSelected, &descriptor);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = GetDescriptorMajorType(descriptor, &majorType);
+		}
+
+		SafeRelease(&descriptor);
+
+		if (majorType != MFMediaType_Audio)
+		{
+			continue;
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			streamIndex = i;
+			break;
+		}
+	}
+
+	if (streamIndex != -1)
+	{
+		IMFStreamDescriptor* streamDescriptor = nullptr;
+		BOOL streamIsSelected = FALSE;
+		hr = sourcePD->GetStreamDescriptorByIndex(streamIndex, &streamIsSelected, &streamDescriptor);
+
+		if (SUCCEEDED(hr))
+		{
+			*pDescriptor = streamDescriptor;
+		}
+	}
+
+	return hr;
+}
+
+HRESULT GetVideoStreamDescriptor(IMFPresentationDescriptor* sourcePD, int sourceStreamCount, IMFStreamDescriptor** pDescriptor)
+{
+	HRESULT hr = S_OK;
+	int streamIndex = -1;
+
+	for (int i = 0; i < sourceStreamCount; i++)
+	{
+		IMFStreamDescriptor* descriptor = nullptr;
+		GUID majorType{};
+
+		if (SUCCEEDED(hr))
+		{
+			BOOL isSelected = FALSE;
+			hr = sourcePD->GetStreamDescriptorByIndex(i, &isSelected, &descriptor);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = GetDescriptorMajorType(descriptor, &majorType);
+		}
+
+		SafeRelease(&descriptor);
+
+		if (majorType != MFMediaType_Video)
+		{
+			continue;
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			streamIndex = i;
+			break;
+		}
+	}
+
+	if (streamIndex != -1)
+	{
+		IMFStreamDescriptor* streamDescriptor = nullptr;
+		BOOL streamIsSelected = FALSE;
+		hr = sourcePD->GetStreamDescriptorByIndex(streamIndex, &streamIsSelected, &streamDescriptor);
+
+		if (SUCCEEDED(hr))
+		{
+			*pDescriptor = streamDescriptor;
+		}
+	}
+
+	return hr;
+}
+
+HRESULT CreateMediaSinkActivate(
+	IMFStreamDescriptor* pSourceSD,     // Pointer to the stream descriptor.
+	HWND hVideoWindow,                  // Handle to the video clipping window.
+	IMFActivate** ppActivate
+)
+{
+	HRESULT hr = S_OK;
+	IMFMediaTypeHandler* pHandler = NULL;
+	IMFActivate* pActivate = NULL;
+
+	// Get the media type handler for the stream.
+
+	if (SUCCEEDED(hr))
+	{
+		hr = pSourceSD->GetMediaTypeHandler(&pHandler);
+	}
+
+	GUID guidMajorType;
+
+	if (SUCCEEDED(hr))
+	{
+		hr = pHandler->GetMajorType(&guidMajorType);
 	}
 
 	// Create an IMFActivate object for the renderer, based on the media type.
 	if (MFMediaType_Audio == guidMajorType)
 	{
-		// Create the audio renderer.
-		hr = MFCreateAudioRendererActivate(&pActivate);
+		if (SUCCEEDED(hr))
+		{
+			hr = MFCreateAudioRendererActivate(&pActivate);
+		}
 	}
 	else if (MFMediaType_Video == guidMajorType)
 	{
-		// Create the video renderer.
-		hr = MFCreateVideoRendererActivate(hVideoWindow, &pActivate);
+		if (SUCCEEDED(hr))
+		{
+			hr = MFCreateVideoRendererActivate(hVideoWindow, &pActivate);
+		}
 	}
 	else
 	{
-		// Unknown stream type. 
-		hr = E_FAIL;
-		// Optionally, you could deselect this stream instead of failing.
+		if (SUCCEEDED(hr))
+		{
+			hr = E_FAIL;
+		}
 	}
-	if (FAILED(hr))
+
+	if (SUCCEEDED(hr))
 	{
-		goto done;
+		pActivate->AddRef();
+		*ppActivate = pActivate;
 	}
 
-	// Return IMFActivate pointer to caller.
-	*ppActivate = pActivate;
-	(*ppActivate)->AddRef();
-
-done:
 	SafeRelease(&pHandler);
 	SafeRelease(&pActivate);
 	return hr;
 }
 
+HRESULT CreateMediaSinkActivateCallback(
+	IMFStreamDescriptor* pSourceSD,     // Pointer to the stream descriptor.
+	HWND hVideoWindow,                  // Handle to the video clipping window.
+	IMFActivate** ppActivate)
+{
+	HRESULT hr = S_OK;
+	IMFMediaTypeHandler* pHandler = NULL;
+	IMFActivate* pActivate = NULL;
+
+	if (SUCCEEDED(hr))
+	{
+		hr = pSourceSD->GetMediaTypeHandler(&pHandler);
+	}
+
+	// Get the major media type.
+	GUID guidMajorType;
+
+	if (SUCCEEDED(hr))
+	{
+		hr = pHandler->GetMajorType(&guidMajorType);
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		if (MFMediaType_Video == guidMajorType)
+		{
+			IMFMediaType* pType = nullptr;
+			IMFMediaType* pVideoOutType = nullptr;
+			SampleGrabberCB* pCallback = nullptr;
+
+			pHandler->GetCurrentMediaType(&pType);
+
+			hr = MFCreateMediaType(&pVideoOutType);
+			pVideoOutType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+			pVideoOutType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_YUY2);
+			pVideoOutType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_MixedInterlaceOrProgressive);
+			pVideoOutType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
+			UINT32 numerator;
+			UINT32 denominator;
+			MFGetAttributeRatio(pType, MF_MT_PIXEL_ASPECT_RATIO, &numerator, &denominator);
+			MFSetAttributeRatio(pVideoOutType, MF_MT_PIXEL_ASPECT_RATIO, numerator, denominator);
+			UINT32 width;
+			UINT32 height;
+			MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
+			MFSetAttributeSize(pVideoOutType, MF_MT_FRAME_SIZE, width, height);
+
+			g_videoFrameIndex = -1;
+			g_videoWidth = width;
+			g_videoHeight = height;
+
+			if (SUCCEEDED(hr))
+			{
+				hr = SampleGrabberCB::CreateInstance(&pCallback);
+			}
+
+			if (SUCCEEDED(hr))
+			{
+				hr = MFCreateSampleGrabberSinkActivate(pVideoOutType, pCallback, &pActivate);
+			}
+
+			if (SUCCEEDED(hr))
+			{
+				hr = pActivate->SetUINT32(MF_SAMPLEGRABBERSINK_IGNORE_CLOCK, TRUE);
+			}
+
+			SafeRelease(&pVideoOutType);
+			SafeRelease(&pType);
+			SafeRelease(&pCallback);
+		}
+		else
+		{
+			// Unknown stream type.
+			hr = E_FAIL;
+			// Optionally, you could deselect this stream instead of failing.
+		}
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		if (pActivate)
+		{
+			pActivate->AddRef();
+		}
+
+		*ppActivate = pActivate;
+	}
+
+	SafeRelease(&pHandler);
+	SafeRelease(&pActivate);
+
+	return hr;
+}
+
 // Add a source node to a topology.
 HRESULT AddSourceNode(
-	IMFTopology *pTopology,           // Topology.
-	IMFMediaSource *pSource,          // Media source.
-	IMFPresentationDescriptor *pPD,   // Presentation descriptor.
-	IMFStreamDescriptor *pSD,         // Stream descriptor.
-	IMFTopologyNode **ppNode)         // Receives the node pointer.
+	IMFTopology* pTopology,           // Topology.
+	IMFMediaSource* pSource,          // Media source.
+	IMFPresentationDescriptor* pPD,   // Presentation descriptor.
+	IMFStreamDescriptor* pSD,         // Stream descriptor.
+	IMFTopologyNode** ppNode)         // Receives the node pointer.
 {
-	IMFTopologyNode *pNode = NULL;
+	IMFTopologyNode* pNode = NULL;
 
 	// Create the node.
 	HRESULT hr = MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &pNode);
@@ -771,12 +1174,12 @@ done:
 
 // Add an output node to a topology.
 HRESULT AddOutputNode(
-	IMFTopology *pTopology,     // Topology.
-	IMFActivate *pActivate,     // Media sink activation object.
+	IMFTopology* pTopology,     // Topology.
+	IMFActivate* pActivate,     // Media sink activation object.
 	DWORD dwId,                 // Identifier of the stream sink.
-	IMFTopologyNode **ppNode)   // Receives the node pointer.
+	IMFTopologyNode** ppNode)   // Receives the node pointer.
 {
-	IMFTopologyNode *pNode = NULL;
+	IMFTopologyNode* pNode = NULL;
 
 	// Create the node.
 	HRESULT hr = MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &pNode);
@@ -821,112 +1224,153 @@ done:
 	return hr;
 }
 
-
 //  Add a topology branch for one stream.
 //
 //  For each stream, this function does the following:
 //
-//    1. Creates a source node associated with the stream. 
-//    2. Creates an output node for the renderer. 
+//    1. Creates a source node associated with the stream.
+//    2. Creates an output node for the renderer.
 //    3. Connects the two nodes.
 //
 //  The media session will add any decoders that are needed.
 
-HRESULT AddBranchToPartialTopology(
-	IMFTopology *pTopology,         // Topology.
-	IMFMediaSource *pSource,        // Media source.
-	IMFPresentationDescriptor *pPD, // Presentation descriptor.
-	DWORD iStream,                  // Stream index.
-	HWND hVideoWnd)                 // Window for video playback.
+//  Create a playback topology from a media source.
+HRESULT CreatePlaybackTopology(
+	IMFMediaSource* pSource,          // Media source.
+	IMFPresentationDescriptor* pPD,   // Presentation descriptor.
+	HWND hVideoWnd,                   // Video window.
+	IMFTopology** ppTopology)         // Receives a pointer to the topology.
 {
-	IMFStreamDescriptor *pSD = NULL;
-	IMFActivate         *pSinkActivate = NULL;
-	IMFTopologyNode     *pSourceNode = NULL;
-	IMFTopologyNode     *pOutputNode = NULL;
+	HRESULT hr = S_OK;
+	IMFTopology* pTopology = NULL;
+	IMFStreamDescriptor* pAudioSD = NULL;
+	IMFStreamDescriptor* pVideoSD = NULL;
+	IMFActivate* pSinkActivate = NULL;
+	IMFTopologyNode* pSourceNode = NULL;
+	IMFTopologyNode* pOutputNode = NULL;
 
-	BOOL fSelected = FALSE;
+	IMFActivate* pCallbackSinkActivate = NULL;
+	IMFTopologyNode* pCallbackOutputNode = NULL;
+	IMFTopologyNode* pTeeOutputNode = NULL;
+	IMFTopologyNode* pTransformNode = NULL;
 
-	HRESULT hr = pPD->GetStreamDescriptorByIndex(iStream, &fSelected, &pSD);
-	if (FAILED(hr))
+	DWORD cSourceStreams = 0;
+
+	if (SUCCEEDED(hr))
 	{
-		goto done;
+		hr = MFCreateTopology(&pTopology);
 	}
 
-	if (fSelected)
+	if (SUCCEEDED(hr))
 	{
-		// Create the media sink activation object.
-		hr = CreateMediaSinkActivate(pSD, hVideoWnd, &pSinkActivate);
-		if (FAILED(hr))
-		{
-			goto done;
-		}
-
-		// Add a source node for this stream.
-		hr = AddSourceNode(pTopology, pSource, pPD, pSD, &pSourceNode);
-		if (FAILED(hr))
-		{
-			goto done;
-		}
-
-		// Create the output node for the renderer.
-		hr = AddOutputNode(pTopology, pSinkActivate, 0, &pOutputNode);
-		if (FAILED(hr))
-		{
-			goto done;
-		}
-
-		// Connect the source node to the output node.
-		hr = pSourceNode->ConnectOutput(0, pOutputNode, 0);
+		hr = pPD->GetStreamDescriptorCount(&cSourceStreams);
 	}
-	// else: If not selected, don't add the branch. 
 
-done:
-	SafeRelease(&pSD);
+	{
+		if (SUCCEEDED(hr))
+		{
+			hr = GetAudioStreamDescriptor(pPD, cSourceStreams, &pAudioSD);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = CreateMediaSinkActivate(pAudioSD, hVideoWnd, &pSinkActivate);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = AddSourceNode(pTopology, pSource, pPD, pAudioSD, &pSourceNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = AddOutputNode(pTopology, pSinkActivate, 0, &pOutputNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = pSourceNode->ConnectOutput(0, pOutputNode, 0);
+		}
+
+		SafeRelease(&pAudioSD);
+		SafeRelease(&pSinkActivate);
+		SafeRelease(&pSourceNode);
+		SafeRelease(&pOutputNode);
+	}
+
+	{
+		if (SUCCEEDED(hr))
+		{
+			hr = GetVideoStreamDescriptor(pPD, cSourceStreams, &pVideoSD);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = CreateMediaSinkActivate(pVideoSD, hVideoWnd, &pSinkActivate);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = CreateMediaSinkActivateCallback(pVideoSD, hVideoWnd, &pCallbackSinkActivate);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = AddSourceNode(pTopology, pSource, pPD, pVideoSD, &pSourceNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = AddOutputNode(pTopology, pSinkActivate, 0, &pOutputNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = AddOutputNode(pTopology, pCallbackSinkActivate, 0, &pCallbackOutputNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = MFCreateTopologyNode(MF_TOPOLOGY_TEE_NODE, &pTeeOutputNode);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			//pSourceNode->ConnectOutput(0, pOutputNode, 0);
+
+			pSourceNode->ConnectOutput(0, pTeeOutputNode, 0);
+			pTeeOutputNode->ConnectOutput(0, pOutputNode, 0);
+			pTeeOutputNode->ConnectOutput(1, pCallbackOutputNode, 0);
+		}
+
+		SafeRelease(&pVideoSD);
+		SafeRelease(&pSinkActivate);
+		SafeRelease(&pSourceNode);
+		SafeRelease(&pOutputNode);
+
+		SafeRelease(&pCallbackSinkActivate);
+		SafeRelease(&pCallbackOutputNode);
+		SafeRelease(&pTeeOutputNode);
+		SafeRelease(&pTransformNode);
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		pTopology->AddRef();
+		*ppTopology = pTopology;
+	}
+
+	SafeRelease(&pTopology);
 	SafeRelease(&pSinkActivate);
 	SafeRelease(&pSourceNode);
 	SafeRelease(&pOutputNode);
-	return hr;
-}
+	SafeRelease(&pAudioSD);
+	SafeRelease(&pVideoSD);
 
-//  Create a playback topology from a media source.
-HRESULT CreatePlaybackTopology(
-	IMFMediaSource *pSource,          // Media source.
-	IMFPresentationDescriptor *pPD,   // Presentation descriptor.
-	HWND hVideoWnd,                   // Video window.
-	IMFTopology **ppTopology)         // Receives a pointer to the topology.
-{
-	IMFTopology *pTopology = NULL;
-	DWORD cSourceStreams = 0;
+	SafeRelease(&pCallbackSinkActivate);
+	SafeRelease(&pCallbackOutputNode);
+	SafeRelease(&pTeeOutputNode);
+	SafeRelease(&pTransformNode);
 
-	// Create a new topology.
-	HRESULT hr = MFCreateTopology(&pTopology);
-	if (FAILED(hr))
-	{
-		goto done;
-	}
-
-	// Get the number of streams in the media source.
-	hr = pPD->GetStreamDescriptorCount(&cSourceStreams);
-	if (FAILED(hr))
-	{
-		goto done;
-	}
-
-	// For each stream, create the topology nodes and add them to the topology.
-	for (DWORD i = 0; i < cSourceStreams; i++)
-	{
-		hr = AddBranchToPartialTopology(pTopology, pSource, pPD, i, hVideoWnd);
-		if (FAILED(hr))
-		{
-			goto done;
-		}
-	}
-
-	// Return the IMFTopology pointer to the caller.
-	*ppTopology = pTopology;
-	(*ppTopology)->AddRef();
-
-done:
-	SafeRelease(&pTopology);
 	return hr;
 }
