@@ -44,7 +44,7 @@ SharedMem<T>::SharedMem(LPCWSTR name, bool openOrCreate)
 		return;
 	}
 
-	pSharedData = (SharedMemData*)MapViewOfFile(
+	pSharedData = (T*)MapViewOfFile(
 		hMapFile,   // handle to map object
 		FILE_MAP_ALL_ACCESS, // read/write permission
 		0,
