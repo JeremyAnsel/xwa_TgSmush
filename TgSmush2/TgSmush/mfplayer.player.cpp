@@ -5,6 +5,7 @@
 #include "SharedMem.h"
 #include "mfplayer.player.h"
 #include "config.h"
+#include <vector>
 //#include <assert.h>
 
 #pragma comment(lib, "shlwapi")
@@ -134,6 +135,8 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 	LONGLONG llSampleTime, LONGLONG llSampleDuration, const BYTE* pSampleBuffer,
 	DWORD dwSampleSize)
 {
+	static std::vector<char> s_colors;
+
 	if (guidMajorMediaType != GUID_NULL && guidMajorMediaType != MFMediaType_Video)
 	{
 		return S_OK;
@@ -145,10 +148,14 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 	//OutputDebugString((L"Sample: start = " + std::to_wstring(llSampleTime) + L", duration = " + std::to_wstring(llSampleDuration) + L", bytes = " + std::to_wstring(dwSampleSize)).c_str());
 
 	int length = dwSampleSize / 2;
-	char* colors = new char[length * 4];
+
+	if (s_colors.capacity() < length * 4)
+	{
+		s_colors.reserve(length * 4);
+	}
 
 	unsigned char* ptrIn = (unsigned char*)pSampleBuffer;
-	unsigned char* ptrOut = (unsigned char*)colors;
+	unsigned char* ptrOut = (unsigned char*)s_colors.data();
 
 	for (int i = 0; i < length / 2; i++)
 	{
@@ -180,10 +187,8 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 		sharedMem->videoFrameWidth = g_videoWidth;
 		sharedMem->videoFrameHeight = g_videoHeight;
 		sharedMem->videoDataLength = length * 4;
-		sharedMem->videoDataPtr = colors;
+		sharedMem->videoDataPtr = s_colors.data();
 	}
-
-	delete[] colors;
 
 	return S_OK;
 }
