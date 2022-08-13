@@ -195,6 +195,15 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 
 STDMETHODIMP SampleGrabberCB::OnShutdown()
 {
+	g_videoFrameIndex = -1;
+
+	auto sharedMem = GetTgSmushVideoSharedMem();
+
+	if (sharedMem)
+	{
+		sharedMem->videoFrameIndex = g_videoFrameIndex;
+	}
+
 	return S_OK;
 }
 
