@@ -190,6 +190,20 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 		sharedMem->videoDataPtr = s_colors.data();
 	}
 
+	const auto XwaPrimarySurfacePresent = (void(*)())0x0053F530;
+	int& XwaPrimarySurface = *(int*)(0x09F60E0 + 0x0F52);
+	int& XwaBackbufferSurface = *(int*)(0x09F60E0 + 0x0F5A);
+
+	if (XwaPrimarySurface)
+	{
+		//OutputDebugString(L"XwaPrimarySurfacePresent called");
+
+		int backbufferSurface = XwaBackbufferSurface;
+		XwaBackbufferSurface = 0;
+		XwaPrimarySurfacePresent();
+		XwaBackbufferSurface = backbufferSurface;
+	}
+
 	return S_OK;
 }
 

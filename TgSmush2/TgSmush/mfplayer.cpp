@@ -316,7 +316,7 @@ int MFPlayVideo(std::wstring filename)
 	xwaDirectDraw->RestoreDisplayMode();
 
 	// Free DirectDraw resources
-	((void(*)())0x5407F0)();
+	//((void(*)())0x5407F0)();
 
 	int returnValue = 0;
 
@@ -338,7 +338,7 @@ int MFPlayVideo(std::wstring filename)
 	ShowWindow(xwaWindow, SW_NORMAL);
 
 	// Init DirectDraw resources
-	((void(*)())0x540370)();
+	//((void(*)())0x540370)();
 
 	return returnValue;
 }
