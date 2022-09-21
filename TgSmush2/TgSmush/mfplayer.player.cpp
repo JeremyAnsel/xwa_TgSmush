@@ -8,6 +8,8 @@
 #include <vector>
 //#include <assert.h>
 
+#include "utils.h"
+
 #pragma comment(lib, "shlwapi")
 #pragma comment(lib, "Mf")
 #pragma comment(lib, "Mfplat")
@@ -189,6 +191,8 @@ STDMETHODIMP SampleGrabberCB::OnProcessSample(REFGUID guidMajorMediaType, DWORD 
 		sharedMem->videoDataLength = length * 4;
 		sharedMem->videoDataPtr = s_colors.data();
 	}
+
+	//saveSurface(L"video", s_colors.data(), g_videoWidth, g_videoHeight);
 
 	const auto XwaPrimarySurfacePresent = (void(*)())0x0053F530;
 	int& XwaPrimarySurface = *(int*)(0x09F60E0 + 0x0F52);
@@ -1095,11 +1099,11 @@ HRESULT CreateMediaSinkActivateCallback(
 			UINT32 numerator;
 			UINT32 denominator;
 			MFGetAttributeRatio(pType, MF_MT_PIXEL_ASPECT_RATIO, &numerator, &denominator);
-			MFSetAttributeRatio(pVideoOutType, MF_MT_PIXEL_ASPECT_RATIO, numerator, denominator);
+			//MFSetAttributeRatio(pVideoOutType, MF_MT_PIXEL_ASPECT_RATIO, numerator, denominator);
 			UINT32 width;
 			UINT32 height;
 			MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
-			MFSetAttributeSize(pVideoOutType, MF_MT_FRAME_SIZE, width, height);
+			//MFSetAttributeSize(pVideoOutType, MF_MT_FRAME_SIZE, width, height);
 
 			g_videoFrameIndex = -1;
 			g_videoWidth = width;
@@ -1117,7 +1121,7 @@ HRESULT CreateMediaSinkActivateCallback(
 
 			if (SUCCEEDED(hr))
 			{
-				hr = pActivate->SetUINT32(MF_SAMPLEGRABBERSINK_IGNORE_CLOCK, TRUE);
+				//hr = pActivate->SetUINT32(MF_SAMPLEGRABBERSINK_IGNORE_CLOCK, TRUE);
 			}
 
 			SafeRelease(&pVideoOutType);
