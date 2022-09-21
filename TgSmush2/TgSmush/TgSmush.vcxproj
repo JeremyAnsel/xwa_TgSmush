@@ -98,6 +98,7 @@
     <ClCompile Include="mfplayer.player.cpp" />
     <ClCompile Include="SharedMem.cpp" />
     <ClCompile Include="smush.cpp" />
+    <ClCompile Include="utils.cpp" />
     <ClCompile Include="video.cpp" />
     <ClCompile Include="xcr.player.cpp" />
   </ItemGroup>
@@ -119,6 +120,7 @@
     <ClInclude Include="SharedMem.h" />
     <ClInclude Include="smush.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="utils.h" />
     <ClInclude Include="video.h" />
     <ClInclude Include="xcr.player.h" />
   </ItemGroup>
