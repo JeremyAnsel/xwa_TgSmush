@@ -41,7 +41,7 @@ struct SharedMemData
     char* videoDataPtr;
 };
 
-The PrimarySurface::Flip method is called each time a video frame is rendered.
+The PrimarySurface::UpdateOverlayDisplay method is called each time a video frame is rendered.
 
 
 *** License ***
